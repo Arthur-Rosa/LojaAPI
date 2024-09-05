@@ -1,11 +1,49 @@
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require('jsonwebtoken');
 
 const UserController = {
+  login: async (req, res) => {
+    try {
+      const { email, senha } = req.body;
+
+      const user = await User.findOne({ where: { email } });
+
+      if (!user) {
+        return res.status(400).json({
+          msg: "Email ou senha incorretos",
+        });
+      }
+
+      const isValida = await bcrypt.compare(senha, user.senha);
+      if (!isValida) {
+        return res.status(400).json({
+          msg: "Email ou senha incorretos",
+        });
+      }
+
+      const token = jwt.sign({ 
+        email: user.email, 
+        nome: user.nome 
+      }, process.env.SECRET, { expiresIn: '1h' });
+
+      return res.status(200).json({
+        msg: 'Login realizado!',
+        token
+      })
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ msg: "Acione o Suporte" });
+    }
+  },
+
   create: async (req, res) => {
     try {
       const { nome, senha, email } = req.body;
 
-      const userCriado = await User.create({ nome, senha, email });
+      const hashSenha = await bcrypt.hash(senha, 10);
+
+      const userCriado = await User.create({ nome, senha: hashSenha, email });
 
       return res.status(200).json({
         msg: "Usuario criado com sucesso!",
@@ -29,22 +67,24 @@ const UserController = {
 
       if (userUpdate == null) {
         return res.status(404).json({
-          msg: "usuario nao encontrado"
-        })
+          msg: "usuario nao encontrado",
+        });
       }
 
       const updated = await userUpdate.update({
-        nome, senha, email
+        nome,
+        senha,
+        email,
       });
 
-      if(updated) {
+      if (updated) {
         return res.status(200).json({
           msg: "Usuario atualizado com sucesso!",
         });
       }
 
       return res.status(500).json({
-        msg: "Erro ao atualizar usuario"
+        msg: "Erro ao atualizar usuario",
       });
     } catch (error) {
       console.error(error);
@@ -97,10 +137,10 @@ const UserController = {
 
       const userFinded = await User.findByPk(id);
 
-      if(userFinded == null) {
+      if (userFinded == null) {
         return res.status(404).json({
-          msg: "user nao encontrado"
-        })
+          msg: "user nao encontrado",
+        });
       }
       // Destruindo -> Deletando
       // As same it deleted
